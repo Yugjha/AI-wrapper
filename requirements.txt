@@ -1,4 +1,6 @@
 streamlit
+streamlit>=1.28.0
+# Add your actual dependencies
 # Add your dependencies
 # numpy
 # pandas
