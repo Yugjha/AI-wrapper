@@ -1,31 +1,26 @@
 import streamlit as st
-import speech_recognition as sr
-import pyttsx3
-from io import BytesIO
-import os
+from datetime import datetime
 
-# Page config
+# ===== IMPORT YOUR ACTUAL WRAPPER =====
+# Uncomment the one you're using:
+# from main import AI_Wrapper
+# from academic_connector import AcademicConnector
+# from your_module import YourClass
+# =======================================
+
 st.set_page_config(
-    page_title="AI Wrapper - Voice & Chat",
+    page_title="AI Wrapper - Academic Intelligence",
     page_icon="🤖",
     layout="wide"
 )
 
-# Custom CSS
 st.markdown("""
     <style>
     .main {
         background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
     }
-    h1 {
-        color: #58a6ff;
-        text-align: center;
-        font-size: 3em;
-    }
-    h2 {
-        color: #79c0ff;
-        text-align: center;
-    }
+    h1 { color: #58a6ff; text-align: center; font-size: 3em; }
+    h2 { color: #79c0ff; text-align: center; }
     .stButton button {
         background-color: #1f6feb;
         color: white;
@@ -34,65 +29,59 @@ st.markdown("""
         font-weight: bold;
         width: 100%;
     }
+    .message-user {
+        background-color: #238636;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 5px 0;
+        color: white;
+    }
+    .message-ai {
+        background-color: #0d47a1;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 5px 0;
+        color: white;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Header
 st.markdown("<h1>🤖 AI Wrapper</h1>", unsafe_allow_html=True)
 st.markdown("<h2>Academic Intelligence Reimagined</h2>", unsafe_allow_html=True)
 st.divider()
-
-# Initialize text-to-speech engine
-tts_engine = pyttsx3.init()
-tts_engine.setProperty('rate', 150)
-
-# Sidebar
-with st.sidebar:
-    st.title("⚙️ Settings")
-    
-    input_mode = st.radio(
-        "Select Input Mode:",
-        ["💬 Text Chat", "🎤 Voice Input"],
-        key="input_mode"
-    )
-    
-    output_mode = st.radio(
-        "Select Output Mode:",
-        ["📝 Text Only", "🔊 Voice + Text"],
-        key="output_mode"
-    )
-    
-    st.divider()
-    st.info("💡 Tip: Test locally first before deploying!")
 
 # Initialize session state
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# ============================================================
+# Sidebar
+with st.sidebar:
+    st.title("⚙️ Settings")
+    mode = st.radio("Select Mode:", ["💬 Text Chat", "🎤 Voice Chat"])
+    st.divider()
+    st.info("✅ Your AI Wrapper is Ready!")
+
 # TEXT CHAT MODE
-# ============================================================
-if input_mode == "💬 Text Chat":
-    st.subheader("💬 Chat Mode")
+if mode == "💬 Text Chat":
+    st.subheader("💬 Chat with AI")
     
-    # Display chat history
     if st.session_state.chat_history:
-        st.markdown("### 📋 Chat History")
+        st.markdown("### 📋 Conversation")
         for msg in st.session_state.chat_history:
-            if msg["role"] == "user":
-                st.write(f"**You:** {msg['content']}")
+            if msg["type"] == "user":
+                st.markdown(f'<div class="message-user"><b>You:</b> {msg["content"]}</div>', 
+                           unsafe_allow_html=True)
             else:
-                st.write(f"**AI:** {msg['content']}")
+                st.markdown(f'<div class="message-ai"><b>AI:</b> {msg["content"]}</div>', 
+                           unsafe_allow_html=True)
         st.divider()
     
-    # Input
     col1, col2 = st.columns([5, 1])
     with col1:
         user_input = st.text_area(
             "Your message:",
-            placeholder="Type your question here...",
-            height=100,
-            key="text_input"
+            placeholder="Ask anything about academics, learning, AI...",
+            height=100
         )
     with col2:
         st.write("")
@@ -100,108 +89,92 @@ if input_mode == "💬 Text Chat":
         st.write("")
         submit = st.button("📤 Send", use_container_width=True)
     
-    if submit and user_input:
+    if submit and user_input.strip():
         with st.spinner("🔄 Processing..."):
             try:
-                # ========== YOUR WRAPPER HERE ==========
-                # Replace this with your actual wrapper
-                response = f"Echo: {user_input}"
-                # response = your_wrapper.process(user_input)
-                # ========================================
+                # ===== USE YOUR ACTUAL WRAPPER HERE =====
+                # Example:
+                # wrapper = AI_Wrapper()
+                # ai_response = wrapper.process(user_input)
                 
-                # Add to history
+                # For now, demo response:
+                ai_response = f"Response: {user_input}"
+                # =========================================
+                
                 st.session_state.chat_history.append({
-                    "role": "user",
-                    "content": user_input
+                    "type": "user",
+                    "content": user_input,
                 })
                 st.session_state.chat_history.append({
-                    "role": "assistant",
-                    "content": response
+                    "type": "ai",
+                    "content": ai_response,
                 })
                 
-                st.success("✅ Response received!")
+                st.success("✅ Done!")
                 st.rerun()
                 
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
 
-# ============================================================
-# VOICE INPUT MODE
-# ============================================================
-elif input_mode == "🎤 Voice Input":
+# VOICE CHAT MODE
+elif mode == "🎤 Voice Chat":
     st.subheader("🎤 Voice Mode")
     
-    col1, col2 = st.columns(2)
+    if st.session_state.chat_history:
+        st.markdown("### 📋 Conversation")
+        for msg in st.session_state.chat_history:
+            if msg["type"] == "user":
+                st.markdown(f'<div class="message-user"><b>You:</b> {msg["content"]}</div>', 
+                           unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="message-ai"><b>AI:</b> {msg["content"]}</div>', 
+                           unsafe_allow_html=True)
+        st.divider()
+    
+    col1, col2 = st.columns([3, 2])
     
     with col1:
-        st.write("**Step 1: Record your voice**")
-        audio_data = st.audio_input("🎙️ Click to record:")
+        st.write("**🎙️ Record your voice:**")
+        audio_data = st.audio_input("Click to record")
     
     with col2:
-        st.write("**Step 2: Process**")
-        if st.button("🔄 Convert Speech to Text", use_container_width=True):
-            if audio_data:
-                with st.spinner("🔊 Converting speech to text..."):
-                    try:
-                        # Save audio temporarily
-                        with open("temp_audio.wav", "wb") as f:
-                            f.write(audio_data.getbuffer())
-                        
-                        # Recognize speech
-                        recognizer = sr.Recognizer()
-                        with sr.AudioFile("temp_audio.wav") as source:
-                            audio = recognizer.record(source)
-                        
-                        text = recognizer.recognize_google(audio)
-                        st.session_state.voice_text = text
-                        st.success("✅ Speech converted!")
-                        st.write(f"**Recognized:** {text}")
-                        
-                        # Cleanup
-                        os.remove("temp_audio.wav")
-                        
-                    except sr.UnknownValueError:
-                        st.error("❌ Could not understand audio. Please try again.")
-                    except Exception as e:
-                        st.error(f"❌ Error: {str(e)}")
-            else:
-                st.warning("⚠️ Please record audio first!")
+        st.write("**📝 Or type:**")
+        voice_text = st.text_input("Type message:", placeholder="Type here...")
     
-    st.divider()
-    
-    # Process converted text
-    if "voice_text" in st.session_state:
-        st.write(f"**Your Input:** {st.session_state.voice_text}")
+    if st.button("🤖 Get Response", use_container_width=True):
+        input_text = voice_text if voice_text else "Voice message"
         
-        if st.button("🤖 Get AI Response", use_container_width=True):
+        if voice_text or audio_data:
             with st.spinner("🔄 Processing..."):
                 try:
-                    # ========== YOUR WRAPPER HERE ==========
-                    response = f"Response to: {st.session_state.voice_text}"
-                    # response = your_wrapper.process(st.session_state.voice_text)
-                    # ========================================
+                    # ===== USE YOUR ACTUAL WRAPPER HERE =====
+                    # wrapper = AI_Wrapper()
+                    # ai_response = wrapper.process(input_text)
+                    
+                    ai_response = f"Response to: {input_text}"
+                    # =========================================
+                    
+                    st.session_state.chat_history.append({
+                        "type": "user",
+                        "content": input_text,
+                    })
+                    st.session_state.chat_history.append({
+                        "type": "ai",
+                        "content": ai_response,
+                    })
                     
                     st.success("✅ Response generated!")
-                    st.write(f"**AI Response:** {response}")
-                    
-                    # Text to Speech
-                    if output_mode == "🔊 Voice + Text":
-                        st.write("**Playing response...**")
-                        try:
-                            tts_engine.save_to_file(response, "response.mp3")
-                            tts_engine.runAndWait()
-                            
-                            # Play audio
-                            with open("response.mp3", "rb") as audio_file:
-                                st.audio(audio_file.read(), format="audio/mp3")
-                            
-                            os.remove("response.mp3")
-                        except Exception as e:
-                            st.warning(f"⚠️ Could not generate voice: {e}")
+                    st.rerun()
                     
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
 
 # Footer
 st.divider()
-st.caption("🚀 Built with Streamlit | 🎤 Voice & Chat Enabled | 🤖 AI Powered")
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("🗑️ Clear Chat"):
+        st.session_state.chat_history = []
+        st.rerun()
+
+st.caption("🚀 Built with Streamlit | 🤖 AI Powered by Yugha")
