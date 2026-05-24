@@ -1,0 +1,6 @@
+streamlit
+# Add your dependencies
+# numpy
+# pandas
+# torch
+# etc.
