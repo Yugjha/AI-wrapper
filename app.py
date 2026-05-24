@@ -1,7 +1,5 @@
 import streamlit as st
 from datetime import datetime
-from chatbot import PDFChatbot
-from llm_client import AVAILABLE_MODELS
 import traceback
 
 # ═══════════════════════════════════════════════════════════════
@@ -56,47 +54,34 @@ st.markdown("""
         color: white;
         border-left: 4px solid #58a6ff;
     }
-    .sources-box {
-        background-color: #161b22;
-        padding: 15px;
-        border-radius: 5px;
-        margin: 10px 0;
-        border-left: 4px solid #d29922;
-    }
-    .followup-box {
-        background-color: #0d1117;
-        padding: 10px;
-        border-radius: 5px;
-        margin: 5px 0;
-        border: 1px solid #30363d;
-    }
     </style>
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════
-# Session State Initialization
+# Initialize Chatbot with Safe Error Handling
 # ═══════════════════════════════════════════════════════════════
 
-if "chatbot" not in st.session_state:
+@st.cache_resource
+def load_chatbot():
     try:
-        st.session_state.chatbot = PDFChatbot()
-        st.session_state.chatbot_ready = True
+        from chatbot import PDFChatbot
+        return PDFChatbot(), None
+    except ImportError as e:
+        return None, f"Import Error: {str(e)}"
     except Exception as e:
-        st.session_state.chatbot = None
-        st.session_state.chatbot_ready = False
-        st.session_state.error = str(e)
+        return None, f"Initialization Error: {str(e)}"
+
+chatbot, init_error = load_chatbot()
+
+# ═══════════════════════════════════════════════════════════════
+# Session State Initialization
+# ═══════════════════════════════════════════════════════════════
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 if "last_result" not in st.session_state:
     st.session_state.last_result = None
-
-if "selected_model" not in st.session_state:
-    if st.session_state.chatbot_ready:
-        st.session_state.selected_model = st.session_state.chatbot.model_config.display_name
-    else:
-        st.session_state.selected_model = "Not initialized"
 
 # ═══════════════════════════════════════════════════════════════
 # Header
@@ -107,75 +92,60 @@ st.markdown("<h2>Media Literacy Chatbot</h2>", unsafe_allow_html=True)
 st.divider()
 
 # ═══════════════════════════════════════════════════════════════
-# Check Chatbot Status
+# Error Handling
 # ═══════════════════════════════════════════════════════════════
 
-if not st.session_state.chatbot_ready:
-    st.error(f"❌ Chatbot initialization failed: {st.session_state.error}")
+if chatbot is None:
+    st.error("❌ Chatbot initialization failed!")
+    st.error(f"Error: {init_error}")
+    st.info("⚠️ Checking dependencies...")
+    
+    # Show what's wrong
+    st.write("### Possible Issues:")
+    st.write("1. **Google Generative AI**: Missing or incorrectly imported")
+    st.write("2. **API Keys**: Check your `.env` file for:")
+    st.code("""
+    GOOGLE_API_KEY=your_key_here
+    ANTHROPIC_API_KEY=your_key_here
+    PINECONE_API_KEY=your_key_here
+    """)
+    st.write("3. **Data Files**: Ensure `data/processed/txt_processed.flag` exists")
+    st.write("4. **Dependencies**: Check logs for missing packages")
+    
     st.stop()
 
 # ═══════════════════════════════════════════════════════════════
-# Sidebar: Settings & Model Selection
+# Sidebar Settings
 # ═══════════════════════════════════════════════════════════════
 
 with st.sidebar:
     st.title("⚙️ Settings")
     
-    # Model Selection
+    # Current Model
+    try:
+        current_model = chatbot.model_config.display_name if chatbot else "Unknown"
+    except:
+        current_model = "Default"
+    
     st.subheader("🤖 AI Model")
-    model_options = {
-        "⚡ Gemini Flash": "1",
-        "🔬 Gemini Pro": "2",
-        "🎯 Claude Haiku": "3"
-    }
+    st.info(f"**Current:** {current_model}")
     
-    selected_model_display = st.selectbox(
-        "Choose Model:",
-        options=list(model_options.keys()),
-        key="model_select"
-    )
+    st.divider()
     
-    model_key = model_options[selected_model_display]
-    
-    if st.button("🔄 Switch Model", use_container_width=True):
+    # Clear History
+    if st.button("🗑️ Clear Chat History", use_container_width=True):
         try:
-            new_config = AVAILABLE_MODELS[model_key]
-            st.session_state.chatbot.switch_model(new_config)
-            st.session_state.selected_model = new_config.display_name
-            st.success(f"✅ Switched to {new_config.display_name}")
+            chatbot.clear_history()
+            st.session_state.chat_history = []
+            st.session_state.last_result = None
+            st.success("✅ History cleared!")
             st.rerun()
         except Exception as e:
-            st.error(f"❌ Error switching model: {str(e)}")
+            st.error(f"Error: {str(e)}")
     
     st.divider()
-    
-    # Current Model Info
-    st.subheader("📊 Current Model")
-    st.info(f"**{st.session_state.chatbot.model_config.display_name}**\n\n{st.session_state.chatbot.model_config.description}")
-    
-    st.divider()
-    
-    # Conversation Management
-    st.subheader("💬 Conversation")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("🗑️ Clear History", use_container_width=True):
-            try:
-                st.session_state.chatbot.clear_history()
-                st.session_state.chat_history = []
-                st.session_state.last_result = None
-                st.success("✅ History cleared!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
-    
-    with col2:
-        st.metric("Messages", len(st.session_state.chat_history) // 2)
-    
-    st.divider()
-    
-    st.caption("✨ Built with Streamlit\n🤖 Powered by Digilab")
+    st.metric("Messages", len(st.session_state.chat_history) // 2)
+    st.caption("✨ Built with Streamlit")
 
 # ═══════════════════════════════════════════════════════════════
 # Main Chat Area
@@ -226,7 +196,7 @@ if submit_button and user_input.strip():
     with st.spinner("🔄 Thinking..."):
         try:
             # Call the chatbot
-            result = st.session_state.chatbot.ask_question_with_follow_ups(
+            result = chatbot.ask_question_with_follow_ups(
                 question=user_input.strip(),
                 use_history=True
             )
@@ -240,7 +210,7 @@ if submit_button and user_input.strip():
             
             st.session_state.chat_history.append({
                 "type": "assistant",
-                "content": result["answer"],
+                "content": result.get("answer", "No response"),
                 "timestamp": datetime.now().isoformat()
             })
             
@@ -251,8 +221,8 @@ if submit_button and user_input.strip():
             
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
-            st.error("Traceback:")
-            st.code(traceback.format_exc())
+            with st.expander("📋 Full Error Details"):
+                st.code(traceback.format_exc())
 
 # ═══════════════════════════════════════════════════════════════
 # Display Last Response Details
@@ -261,65 +231,24 @@ if submit_button and user_input.strip():
 if st.session_state.last_result:
     st.divider()
     
-    # Sources Section
+    # Sources
     if st.session_state.last_result.get("sources"):
-        with st.expander("📚 Sources Used", expanded=True):
+        with st.expander("📚 Sources Used"):
             sources = st.session_state.last_result["sources"]
-            st.markdown(f"**Total Sources:** {len(sources)}")
-            
+            st.write(f"**Total:** {len(sources)} section(s)")
             for i, source in enumerate(sources[:5], 1):
-                with st.container():
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.markdown(f"**{i}. {source.get('full_section', 'Unknown')[:80]}**")
-                        st.caption(f"📄 {source.get('source_file', 'N/A')} | Page {source.get('page', 'N/A')}")
-                    with col2:
-                        if source.get('text'):
-                            st.caption(f"Preview: {source.get('text', '')[:50]}...")
-            
-            if len(sources) > 5:
-                st.info(f"... and {len(sources) - 5} more sources")
+                st.write(f"**{i}.** {source.get('full_section', 'Unknown')[:80]}")
+                st.caption(f"📄 {source.get('source_file', 'N/A')} | Page {source.get('page', 'N/A')}")
     
-    # Validation Section
-    if st.session_state.last_result.get("validation"):
-        with st.expander("✅ Answer Validation"):
-            validation = st.session_state.last_result["validation"]
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                completeness = validation.get("completeness_score", 0)
-                st.metric("Completeness", f"{completeness}/10")
-            
-            with col2:
-                relevance = validation.get("relevance_score", 0)
-                st.metric("Relevance", f"{relevance}/10")
-            
-            with col3:
-                accuracy = validation.get("accuracy_score", 0)
-                st.metric("Accuracy", f"{accuracy}/10")
-    
-    # Expanded Queries Section
-    if st.session_state.last_result.get("expanded_queries"):
-        with st.expander("🔍 Related Queries"):
-            for query in st.session_state.last_result["expanded_queries"]:
-                if st.button(f"Ask: {query[:70]}...", key=f"query_{query[:20]}"):
-                    st.session_state.user_input = query
-                    st.rerun()
-    
-    # Follow-up Questions Section
+    # Follow-up Questions
     if st.session_state.last_result.get("follow_up_questions"):
         follow_ups = st.session_state.last_result["follow_up_questions"]
-        type_2_questions = follow_ups.get("type_2_context_aware", [])
-        
-        if type_2_questions:
+        type_2 = follow_ups.get("type_2_context_aware", [])
+        if type_2:
             with st.expander("💡 Follow-up Questions"):
-                st.markdown(f"**Status:** {follow_ups.get('status', 'unknown')}")
-                for i, question in enumerate(type_2_questions, 1):
-                    if st.button(
-                        f"{i}. {question}",
-                        key=f"followup_{i}_{question[:20]}"
-                    ):
-                        st.session_state.user_input = question
+                for i, q in enumerate(type_2, 1):
+                    if st.button(f"{i}. {q}", key=f"fup_{i}"):
+                        st.session_state.user_input = q
                         st.rerun()
 
 # ═══════════════════════════════════════════════════════════════
@@ -330,7 +259,7 @@ st.divider()
 st.markdown("""
 ---
 <div style='text-align: center; color: #8b949e;'>
-    <p>📖 <b>Digilab Media Literacy Chatbot</b> | 🤖 Powered by AI | 💡 IGNOU Course Assistant</p>
-    <p>Built with <b>Streamlit</b> | LLM: <b>Google Gemini + Anthropic Claude</b></p>
+    <p>📖 <b>Digilab Media Literacy Chatbot</b></p>
+    <p>Built with Streamlit | Powered by Google Gemini & Anthropic Claude</p>
 </div>
 """, unsafe_allow_html=True)
